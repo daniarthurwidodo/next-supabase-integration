@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js Supabase Integration
+
+A Next.js application with Supabase integration featuring authentication, user management, and admin dashboard.
+
+## Features
+
+- User authentication (login/register)
+- Admin dashboard with sidebar navigation
+- User management with full CRUD operations
+- Responsive design with dark mode support
+- Demo users for testing
+- RESTful API endpoints
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18+
+- Docker (for Supabase local development)
+
+### Installation
+
+1. Install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Start Supabase local development:
+```bash
+npx supabase start
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Run the development server:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Available Scripts
 
-## Learn More
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run seed:users` - Seed demo users
 
-To learn more about Next.js, take a look at the following resources:
+### Demo Users
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The application comes with two demo users for testing:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. demo1@example.com / demopassword123
+2. demo2@example.com / demopassword123
 
-## Deploy on Vercel
+These credentials are displayed on the login page for easy access.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+  app/                 # Next.js app router pages
+    admin/             # Admin dashboard pages
+      dashboard/       # Dashboard page
+      users/           # Users management pages
+    api/               # API routes
+      auth/            # Authentication routes
+        login/         # Login endpoint
+        register/      # Registration endpoint
+      users/           # Users endpoint
+    login/             # Login page
+    register/          # Registration page
+  lib/                 # Business logic
+    modules/           # Feature modules
+      user/            # User module
+  utils/               # Utility functions
+    supabase/          # Supabase client configurations
+scripts/               # Utility scripts
+supabase/              # Supabase configuration and migrations
+```
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Authenticate a user
+- `POST /api/auth/register` - Register a new user
+
+### Users
+- `GET /api/users` - Get all users with pagination and search
+
+For detailed API documentation, see the [Qwen.md](Qwen.md) file.
+
+## Postman Collection
+
+This project includes a Postman collection for testing the API endpoints:
+
+1. Open Postman
+2. Import the `postman-collection.json` file
+3. Set the `base_url` variable to your application URL (default: http://localhost:3000)
+
+The collection includes requests for:
+- User login
+- User registration
+- Get all users with pagination and search
+
+## Supabase Setup
+
+This project uses Supabase local development. The local instance includes:
+
+- Authentication
+- Database with users table
+- Realtime functionality
+
+## Environment Variables
+
+The project uses the following environment variables (configured for local development):
+
+- `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0`
+
+For more details, see the [Qwen.md](Qwen.md) file.

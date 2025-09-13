@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Blue color scheme for admin panel */
+.bg-blue-900 {
+  background-color: #1e3a8a; /* Dark blue */
+}
+
+.bg-blue-800 {
+  background-color: #1e40af; /* Medium blue */
+}
+
+.bg-blue-100 {
+  background-color: #dbeafe; /* Light blue */
+}
+
+.text-blue-600 {
+  color: #2563eb; /* Base blue */
+}
+
+.text-blue-800 {
+  color: #1e40af; /* Dark blue text */
+}
+
+.border-blue-800 {
+  border-color: #1e40af; /* Dark blue border */
+}
+
+.hover\:bg-blue-800:hover {
+  background-color: #1e40af; /* Medium blue on hover */
+}
+
+.hover\:text-blue-900:hover {
+  color: #1e3a8a; /* Dark blue text on hover */
+}
+
+.focus\:ring-blue-500:focus {
+  --tw-ring-color: #3b82f6; /* Focus ring blue */
+}
+
+.bg-blue-600 {
+  background-color: #2563eb; /* Base blue */
+}
+
+.hover\:bg-blue-700:hover {
+  background-color: #1d4ed8; /* Darker blue on hover */
+}
