@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { UserController } from '@/lib/modules/user/user.controller';
 import { UpdateUserInput } from '@/lib/modules/user/user.types';
 
 // GET /api/users/[id] - Get a single user
@@ -9,41 +9,25 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    
+    const userController = new UserController();
+    const result = await userController.getUserById(id);
 
-    // Create a Supabase client with service role key for admin access
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-    );
-
-    // Validate the UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
-      return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
+    if (result.error) {
+      if (result.error === 'User not found') {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      if (result.error === 'Invalid user ID format') {
+        return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
+      }
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
-    // Get the user
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-
-    // Handle case when user is not found
-    if (error && error.code === 'PGRST116') {
+    if (!result.data) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Check if user was found
-    if (!data) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(data);
+    return NextResponse.json(result.data);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
   }
@@ -56,53 +40,24 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-
-    // Create a Supabase client with service role key for admin access
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-    );
-
-    // Validate the UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
-      return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
-    }
-
+    
     // Get the request body
     const userData: UpdateUserInput = await request.json();
 
-    // Validate required fields
-    if (!userData.full_name) {
-      return NextResponse.json({ error: 'Full name is required' }, { status: 400 });
+    const userController = new UserController();
+    const result = await userController.updateUser(id, userData);
+
+    if (result.error) {
+      if (result.error === 'User not found') {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      if (result.error === 'User ID is required') {
+        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+      }
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
-    // Update the user
-    const { data, error } = await supabase
-      .from('users')
-      .update({
-        ...userData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-
-    // Handle case when user is not found
-    if (error && error.code === 'PGRST116') {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Check if user was updated
-    if (!data) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(data);
+    return NextResponse.json(result.data);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
   }
@@ -115,39 +70,18 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    
+    const userController = new UserController();
+    const result = await userController.deleteUser(id);
 
-    // Create a Supabase client with service role key for admin access
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-    );
-
-    // Validate the UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
-      return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
-    }
-
-    // Delete the user
-    const { data, error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-
-    // Handle case when user is not found
-    if (error && error.code === 'PGRST116') {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Check if user was deleted
-    if (!data) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (result.error) {
+      if (result.error === 'User not found') {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      if (result.error === 'User ID is required') {
+        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+      }
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'User deleted successfully' });

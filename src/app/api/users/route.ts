@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { UserController } from '@/lib/modules/user/user.controller';
+import { CreateUserInput, UpdateUserInput } from '@/lib/modules/user/user.types';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,41 +9,90 @@ export async function GET(request: Request) {
   const search = searchParams.get('search') || '';
   
   try {
-    // Create a Supabase client with service role key for admin access
-    const supabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-    );
+    const userController = new UserController();
+    const result = await userController.getAllUsers(page, limit, search);
     
-    // Build the query
-    let query = supabase
-      .from('users')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    // Apply search filter if provided
-    if (search) {
-      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
-    }
-
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    query = query.range(startIndex, startIndex + limit - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (result.error) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
     return NextResponse.json({
-      users: data || [],
-      total: count || 0,
+      users: result.data || [],
+      total: result.count || 0,
       page,
       limit,
-      totalPages: Math.ceil((count || 0) / limit)
+      totalPages: result.totalPages || 0
     });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const userData: CreateUserInput = await request.json();
+    
+    const userController = new UserController();
+    const result = await userController.createUser(userData);
+    
+    if (result.error) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    
+    return NextResponse.json(result.data, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+    
+    const userData: UpdateUserInput = await request.json();
+    
+    const userController = new UserController();
+    const result = await userController.updateUser(id, userData);
+    
+    if (result.error) {
+      if (result.error === 'User not found') {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    
+    return NextResponse.json(result.data);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+    
+    const userController = new UserController();
+    const result = await userController.deleteUser(id);
+    
+    if (result.error) {
+      if (result.error === 'User not found') {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    
+    return NextResponse.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
   }
 }

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/browserClient';
 import { useRouter } from 'next/navigation';
-import { UserController } from '@/lib/modules/user/user.controller';
 import { User } from '@/lib/modules/user/user.types';
 import { Button } from '@/app/components/Button';
 
@@ -30,7 +29,6 @@ export default function UsersPage() {
   
   const supabase = createClient();
   const router = useRouter();
-  const userController = new UserController();
 
   useEffect(() => {
     fetchUsers();
@@ -39,15 +37,24 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error, count, totalPages } = await userController.getAllUsers(page, limit, searchQuery);
-      
-      if (error) {
-        console.error('Error fetching users:', error);
-      } else {
-        setUsers(data || []);
-        setTotalUsers(count);
-        setTotalPages(totalPages);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        ...(searchQuery && { search: searchQuery })
+      });
+
+      const response = await fetch(`/api/users?${params}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error fetching users:', errorData.error);
+        return;
       }
+
+      const data = await response.json();
+      setUsers(data.users || []);
+      setTotalUsers(data.total || 0);
+      setTotalPages(data.totalPages || 0);
     } catch (err) {
       console.error('Error:', err);
     } finally {
@@ -145,20 +152,28 @@ export default function UsersPage() {
         }
       }
       
-      const { data, error } = await userController.createUser({
-        full_name: formData.full_name,
-        email: formData.email,
-        avatar_url: avatarUrl || undefined,
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: formData.full_name,
+          email: formData.email,
+          avatar_url: avatarUrl || undefined,
+        }),
       });
-      
-      if (error) {
-        setFormError(error);
-      } else {
-        setFormData({ full_name: '', email: '', avatar_url: '' });
-        setAvatarFile(null);
-        setShowCreateForm(false);
-        fetchUsers(); // Refresh the user list
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setFormError(errorData.error || 'Failed to create user');
+        return;
       }
+
+      setFormData({ full_name: '', email: '', avatar_url: '' });
+      setAvatarFile(null);
+      setShowCreateForm(false);
+      fetchUsers(); // Refresh the user list
     } catch (err) {
       setFormError('An unexpected error occurred');
     } finally {
@@ -207,20 +222,28 @@ export default function UsersPage() {
         }
       }
       
-      const { data, error } = await userController.updateUser(editingUser.id, {
-        full_name: formData.full_name,
-        avatar_url: avatarUrl || undefined,
+      const response = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: formData.full_name,
+          avatar_url: avatarUrl || undefined,
+        }),
       });
-      
-      if (error) {
-        setFormError(error);
-      } else {
-        setFormData({ full_name: '', email: '', avatar_url: '' });
-        setAvatarFile(null);
-        setShowEditForm(false);
-        setEditingUser(null);
-        fetchUsers(); // Refresh the user list
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setFormError(errorData.error || 'Failed to update user');
+        return;
       }
+
+      setFormData({ full_name: '', email: '', avatar_url: '' });
+      setAvatarFile(null);
+      setShowEditForm(false);
+      setEditingUser(null);
+      fetchUsers(); // Refresh the user list
     } catch (err) {
       setFormError('An unexpected error occurred');
     } finally {
@@ -232,15 +255,19 @@ export default function UsersPage() {
     if (!confirm('Are you sure you want to delete this user?')) {
       return;
     }
-    
+
     try {
-      const { error } = await userController.deleteUser(id);
-      
-      if (error) {
-        console.error('Error deleting user:', error);
-      } else {
-        fetchUsers(); // Refresh the user list
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error deleting user:', errorData.error);
+        return;
       }
+
+      fetchUsers(); // Refresh the user list
     } catch (err) {
       console.error('Error:', err);
     }
