@@ -34,6 +34,12 @@ export class UserController {
         return { data: null, error: 'User ID is required' };
       }
 
+      // Validate the UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        return { data: null, error: 'Invalid user ID format' };
+      }
+
       const { data, error } = await this.userService.getUserById(id);
       
       if (error) {

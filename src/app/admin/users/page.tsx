@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/browserClient';
 import { useRouter } from 'next/navigation';
 import { UserController } from '@/lib/modules/user/user.controller';
 import { User } from '@/lib/modules/user/user.types';
+import { Button } from '@/app/components/Button';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -16,11 +17,14 @@ export default function UsersPage() {
   const [formData, setFormData] = useState({ full_name: '', email: '', avatar_url: '' });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   
   // Pagination and filtering state
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   
@@ -30,12 +34,12 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, search]);
+  }, [page, searchQuery]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error, count, totalPages } = await userController.getAllUsers(page, limit, search);
+      const { data, error, count, totalPages } = await userController.getAllUsers(page, limit, searchQuery);
       
       if (error) {
         console.error('Error fetching users:', error);
@@ -54,7 +58,60 @@ export default function UsersPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1); // Reset to first page when searching
-    fetchUsers();
+    setSearchQuery(search); // This will trigger useEffect to fetch users
+  };
+
+  const uploadAvatar = async (file: File): Promise<string | null> => {
+    try {
+      setAvatarUploading(true);
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file);
+
+      if (error) {
+        console.error('Upload error:', error);
+        setFormError('Failed to upload avatar');
+        return null;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      setFormError('Failed to upload avatar');
+      return null;
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setFormError('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setFormError('File size must be less than 5MB');
+        return;
+      }
+      
+      setAvatarFile(file);
+      setFormError('');
+    }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -75,16 +132,30 @@ export default function UsersPage() {
     
     try {
       setFormLoading(true);
+      
+      let avatarUrl = formData.avatar_url;
+      
+      // Upload avatar file if selected
+      if (avatarFile) {
+        const uploadedUrl = await uploadAvatar(avatarFile);
+        if (uploadedUrl) {
+          avatarUrl = uploadedUrl;
+        } else {
+          return; // Upload failed, error already set
+        }
+      }
+      
       const { data, error } = await userController.createUser({
         full_name: formData.full_name,
         email: formData.email,
-        avatar_url: formData.avatar_url || undefined,
+        avatar_url: avatarUrl || undefined,
       });
       
       if (error) {
         setFormError(error);
       } else {
         setFormData({ full_name: '', email: '', avatar_url: '' });
+        setAvatarFile(null);
         setShowCreateForm(false);
         fetchUsers(); // Refresh the user list
       }
@@ -102,6 +173,8 @@ export default function UsersPage() {
       email: user.email || '',
       avatar_url: user.avatar_url || '',
     });
+    setAvatarFile(null);
+    setFormError('');
     setShowEditForm(true);
   };
 
@@ -121,15 +194,29 @@ export default function UsersPage() {
     
     try {
       setFormLoading(true);
+      
+      let avatarUrl = formData.avatar_url;
+      
+      // Upload avatar file if selected
+      if (avatarFile) {
+        const uploadedUrl = await uploadAvatar(avatarFile);
+        if (uploadedUrl) {
+          avatarUrl = uploadedUrl;
+        } else {
+          return; // Upload failed, error already set
+        }
+      }
+      
       const { data, error } = await userController.updateUser(editingUser.id, {
         full_name: formData.full_name,
-        avatar_url: formData.avatar_url || undefined,
+        avatar_url: avatarUrl || undefined,
       });
       
       if (error) {
         setFormError(error);
       } else {
         setFormData({ full_name: '', email: '', avatar_url: '' });
+        setAvatarFile(null);
         setShowEditForm(false);
         setEditingUser(null);
         fetchUsers(); // Refresh the user list
@@ -199,15 +286,16 @@ export default function UsersPage() {
               Manage and view all registered users
             </p>
           </div>
-          <button
+          <Button
             onClick={() => {
               setFormData({ full_name: '', email: '', avatar_url: '' });
+              setAvatarFile(null);
+              setFormError('');
               setShowCreateForm(true);
             }}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Add User
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -223,12 +311,11 @@ export default function UsersPage() {
               className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3"
             />
           </div>
-          <button
+          <Button
             type="submit"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Search
-          </button>
+          </Button>
         </form>
       </div>
 
@@ -270,30 +357,61 @@ export default function UsersPage() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Avatar URL (Optional)
+                    Avatar (Optional)
                   </label>
-                  <input
-                    type="text"
-                    value={formData.avatar_url}
-                    onChange={(e) => setFormData({...formData, avatar_url: e.target.value})}
-                    className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3"
-                  />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Upload Image File
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                      />
+                      {avatarFile && (
+                        <p className="mt-1 text-xs text-green-600">
+                          Selected: {avatarFile.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-300" />
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="bg-white px-2 text-gray-500">or</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Avatar URL
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.avatar_url}
+                        onChange={(e) => setFormData({...formData, avatar_url: e.target.value})}
+                        placeholder="https://example.com/avatar.jpg"
+                        className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-3">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => setShowCreateForm(false)}
-                    className="mt-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={formLoading}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                   >
                     {formLoading ? 'Creating...' : 'Create User'}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -338,33 +456,65 @@ export default function UsersPage() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Avatar URL (Optional)
+                    Avatar (Optional)
                   </label>
-                  <input
-                    type="text"
-                    value={formData.avatar_url}
-                    onChange={(e) => setFormData({...formData, avatar_url: e.target.value})}
-                    className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3"
-                  />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Upload Image File
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                      />
+                      {avatarFile && (
+                        <p className="mt-1 text-xs text-green-600">
+                          Selected: {avatarFile.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-300" />
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="bg-white px-2 text-gray-500">or</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Avatar URL
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.avatar_url}
+                        onChange={(e) => setFormData({...formData, avatar_url: e.target.value})}
+                        placeholder="https://example.com/avatar.jpg"
+                        className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-3"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-3">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => {
                       setShowEditForm(false);
                       setEditingUser(null);
+                      setAvatarFile(null);
                     }}
-                    className="mt-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={formLoading}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                   >
                     {formLoading ? 'Saving...' : 'Save Changes'}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -427,18 +577,19 @@ export default function UsersPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
+                          <Button
                             onClick={() => handleEditUser(user)}
-                            className="text-indigo-600 hover:text-indigo-900 mr-3"
+                            variant="secondary"
+                            className="mr-3"
                           >
                             Edit
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             onClick={() => handleDeleteUser(user.id)}
-                            className="text-red-600 hover:text-red-900"
+                            variant="danger"
                           >
                             Delete
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))
@@ -457,20 +608,21 @@ export default function UsersPage() {
             {totalPages > 1 && (
               <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                 <div className="flex-1 flex justify-between sm:hidden">
-                  <button
+                  <Button
                     onClick={() => handlePageChange(page - 1)}
                     disabled={page === 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    variant="secondary"
                   >
                     Previous
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handlePageChange(page + 1)}
                     disabled={page === totalPages}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    variant="secondary"
+                    className="ml-3"
                   >
                     Next
-                  </button>
+                  </Button>
                 </div>
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
@@ -482,42 +634,40 @@ export default function UsersPage() {
                   </div>
                   <div>
                     <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
+                      <Button
                         onClick={() => handlePageChange(page - 1)}
                         disabled={page === 1}
+                        variant="secondary"
                         className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                       >
                         <span className="sr-only">Previous</span>
                         <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                           <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
-                      </button>
+                      </Button>
                       {[...Array(totalPages)].map((_, i) => {
                         const pageNum = i + 1;
                         return (
-                          <button
+                          <Button
                             key={pageNum}
                             onClick={() => handlePageChange(pageNum)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              pageNum === page
-                                ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
+                            variant={pageNum === page ? 'primary' : 'secondary'}
                           >
                             {pageNum}
-                          </button>
+                          </Button>
                         );
                       })}
-                      <button
+                      <Button
                         onClick={() => handlePageChange(page + 1)}
                         disabled={page === totalPages}
+                        variant="secondary"
                         className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                       >
                         <span className="sr-only">Next</span>
                         <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                           <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                         </svg>
-                      </button>
+                      </Button>
                     </nav>
                   </div>
                 </div>

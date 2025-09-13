@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/browserClient';
+import { Button } from '../components/Button';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -65,8 +66,8 @@ export default function LoginPage() {
 
   // Demo credentials for users to try
   const demoCredentials = [
-    { email: 'demo1@example.com', password: 'demopassword123' },
-    { email: 'demo2@example.com', password: 'demopassword123' }
+    { email: 'admin1@example.com', password: 'demopassword123' },
+    { email: 'admin2@example.com', password: 'demopassword123' }
   ];
 
   const handleDemoLogin = async (email: string, password: string) => {
@@ -133,13 +134,13 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
+              className="w-full"
             >
               {loading ? 'Signing in...' : 'Sign in'}
-            </button>
+            </Button>
           </div>
         </form>
 
@@ -156,12 +157,13 @@ export default function LoginPage() {
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{cred.email}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Password: {cred.password}</p>
                 </div>
-                <button
+                <Button
                   onClick={() => handleDemoLogin(cred.email, cred.password)}
-                  className="w-full sm:w-auto text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition-colors"
+                  variant="secondary"
+                  className="w-full sm:w-auto"
                 >
                   Use Demo Account
-                </button>
+                </Button>
               </div>
             ))}
           </div>

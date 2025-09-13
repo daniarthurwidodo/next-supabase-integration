@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/browserClient';
+import { Button } from '../components/Button';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -172,13 +173,13 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
+              className="w-full"
             >
               {loading ? 'Registering...' : 'Register'}
-            </button>
+            </Button>
           </div>
         </form>
 

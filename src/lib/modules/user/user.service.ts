@@ -13,31 +13,19 @@ export class UserService {
    */
   async getAllUsers(page: number = 1, limit: number = 10, search: string = '') {
     try {
-      let query = this.supabaseClient
-        .from('users')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
-
-      // Apply search filter if provided
-      if (search) {
-        query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+      const response = await fetch(`/api/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      
+      if (!response.ok) {
+        return { data: null, error: 'Failed to fetch users', count: 0, totalPages: 0 };
       }
-
-      // Apply pagination
-      const startIndex = (page - 1) * limit;
-      query = query.range(startIndex, startIndex + limit - 1);
-
-      const { data, error, count } = await query;
-
-      if (error) {
-        return { data: null, error: error.message, count: 0 };
-      }
-
+      
+      const result = await response.json();
+      
       return { 
-        data: data as User[] | null, 
+        data: result.users as User[] | null, 
         error: null, 
-        count: count || 0,
-        totalPages: Math.ceil((count || 0) / limit)
+        count: result.total || 0,
+        totalPages: result.totalPages || 0
       };
     } catch (error) {
       return { data: null, error: 'Failed to fetch users', count: 0, totalPages: 0 };
@@ -52,7 +40,13 @@ export class UserService {
       .from('users')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
+
+    // Handle case when user is not found
+    if (error && error.code === 'PGRST116') {
+      // This is the "not found" error from Supabase
+      return { data: null, error: null };
+    }
 
     return { data: data as User | null, error };
   }
@@ -91,7 +85,12 @@ export class UserService {
       })
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
+
+    // Handle case when user is not found
+    if (error && error.code === 'PGRST116') {
+      return { data: null, error: { message: 'User not found', code: 'NOT_FOUND' } };
+    }
 
     return { data: data as User | null, error };
   }
